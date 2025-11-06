@@ -1,33 +1,29 @@
 import express from "express";
 import axios from "axios";
 import cors from "cors";
-import morgan from "morgan";
 
 const app = express();
 app.use(cors());
-app.use(morgan("tiny"));
 
 app.get("/", (req, res) => {
-  res.send("TIEA IPTV Proxy is running. Use /proxy?u=Base64URL");
+  res.send("✅ TIEA IPTV Proxy is running! Use /proxy?u=Base64URL");
 });
 
 app.get("/proxy", async (req, res) => {
   try {
     const base64url = req.query.u;
     if (!base64url) {
-      return res.status(400).send("Missing ?u= parameter");
+      return res.status(400).send("❌ Missing ?u= parameter");
     }
 
     const decodedUrl = Buffer.from(base64url, "base64").toString("utf-8");
-    console.log("Proxying:", decodedUrl);
+    console.log("🎯 Proxying:", decodedUrl);
 
     const response = await axios.get(decodedUrl, {
       responseType: "arraybuffer",
       headers: {
         "User-Agent":
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
-        Referer: decodedUrl,
-        Origin: "*",
       },
     });
 
@@ -36,11 +32,11 @@ app.get("/proxy", async (req, res) => {
       response.headers["content-type"] || "application/vnd.apple.mpegurl"
     );
     res.send(response.data);
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).send("Proxy error: " + err.message);
+  } catch (error) {
+    console.error("❗ Proxy error:", error.message);
+    res.status(500).send("Proxy error: " + error.message);
   }
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
