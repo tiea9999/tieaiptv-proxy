@@ -1,52 +1,49 @@
 import express from "express";
 import fetch from "node-fetch";
+import { URL } from "url";
 
 const app = express();
 const PORT = process.env.PORT || 10000;
 
-// ---- รายการช่องพร้อม URL ต้นทาง ----
-const channels = {
-  film1: "http://6395online.ddns.net:8080/memfs/116c34ed-5d51-429d-8c3a-c333fc943521_output_0.m3u8",
-  film2: "http://6395online.ddns.net:8080/memfs/a7199114-2ef1-44df-bf18-92ee4c4f2124_output_0.m3u8",
-  filmasia: "http://6395online.ddns.net:8080/memfs/92f6657f-44e5-4673-be56-027159c17358_output_0.m3u8",
-  moviehits: "http://6395online.ddns.net:8080/memfs/494a9a37-45e9-40ae-9f73-1489994ab2c3_output_0.m3u8",
-};
-
-// ---- ตรวจสอบว่าลิงก์ยังใช้ได้ไหม ----
-async function checkURL(url) {
-  try {
-    const res = await fetch(url, { method: "HEAD" });
-    return res.ok;
-  } catch {
-    return false;
-  }
+// ฟังก์ชันช่วยเข้ารหัส Base64
+function decodeBase64(u) {
+  return Buffer.from(u, "base64").toString("utf-8").trim();
 }
 
-// ---- Proxy หลัก ----
-app.get("/channel/:name.m3u8", async (req, res) => {
-  const { name } = req.params;
-  const originUrl = channels[name];
-  if (!originUrl) return res.status(404).send("Channel not found");
-
-  if (!(await checkURL(originUrl))) {
-    return res.status(500).send("#EXTM3U\n#EXTINF:-1,Stream expired\n");
-  }
-
-  try {
-    const response = await fetch(originUrl);
-    const text = await response.text();
-    res.set("Content-Type", "application/vnd.apple.mpegurl");
-    res.send(text);
-  } catch (err) {
-    res.status(500).send("Error fetching stream");
-  }
+// Middleware สำหรับ CORS
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "*");
+  next();
 });
 
-// ---- หน้าแสดงสถานะ ----
-app.get("/", (req, res) => {
-  res.send("🎬 TIEA IPTV Auto Proxy is running!");
+// Route หลัก proxy
+app.get("/", async (req, res) => {
+  const { u } = req.query;
+  if (!u) return res.status(400).send("Missing ?u= parameter");
+
+  try {
+    const url = decodeBase64(u);
+
+    // ตรวจสอบว่าเป็น .m3u8 หรือ .ts
+    if (url.endsWith(".m3u8") || url.endsWith(".ts")) {
+      // Fetch แบบ streaming
+      const response = await fetch(url);
+      if (!response.ok) return res.status(response.status).send("Failed to fetch");
+
+      // ตั้ง Content-Type ตามไฟล์
+      res.header("Content-Type", url.endsWith(".m3u8") ? "application/vnd.apple.mpegurl" : "video/mp2t");
+
+      // Stream data ตรงไปยัง client
+      response.body.pipe(res);
+    } else {
+      res.status(400).send("Only .m3u8 and .ts files supported");
+    }
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Internal Server Error");
+  }
 });
 
 app.listen(PORT, () => {
-  console.log(`✅ TIEA IPTV Proxy is running on port ${PORT}`);
+  console.log(`🎬 TIEA IPTV HLS Proxy running on port ${PORT}!`);
 });
