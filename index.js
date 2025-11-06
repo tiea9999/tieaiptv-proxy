@@ -1,24 +1,12 @@
-import express from "express";
-import fetch from "node-fetch";
-
-const app = express();
-
-app.get("/", (req, res) => {
-  res.send("TIEA IPTV Proxy is running!");
-});
-
-app.get("/proxy", async (req, res) => {
-  const url = req.query.u;
-  if (!url) return res.status(400).send("Missing ?u= parameter");
-
-  try {
-    const response = await fetch(url);
-    res.set("Content-Type", response.headers.get("content-type"));
-    response.body.pipe(res);
-  } catch (err) {
-    res.status(500).send("Proxy Error: " + err.message);
+{
+  "name": "tieaiptv-proxy",
+  "version": "1.0.0",
+  "description": "Simple IPTV proxy server",
+  "main": "server.js",
+  "type": "module",
+  "dependencies": {
+    "axios": "^1.6.7",
+    "cors": "^2.8.5",
+    "express": "^4.18.2"
   }
-});
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
+}
