@@ -8,10 +8,9 @@ app.use(cors());
 app.use(morgan("tiny"));
 
 app.get("/", (req, res) => {
-  res.send("TIEA IPTV Proxy is running. Use /?u=Base64URL");
+  res.send("TIEA IPTV Proxy is running. Use /proxy?u=Base64URL");
 });
 
-// proxy endpoint
 app.get("/proxy", async (req, res) => {
   try {
     const base64url = req.query.u;
@@ -32,7 +31,10 @@ app.get("/proxy", async (req, res) => {
       },
     });
 
-    res.setHeader("Content-Type", response.headers["content-type"] || "application/vnd.apple.mpegurl");
+    res.setHeader(
+      "Content-Type",
+      response.headers["content-type"] || "application/vnd.apple.mpegurl"
+    );
     res.send(response.data);
   } catch (err) {
     console.error(err.message);
