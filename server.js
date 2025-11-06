@@ -3,33 +3,28 @@ import fetch from "node-fetch";
 import cors from "cors";
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000;
 
 app.use(cors());
 
-// Proxy endpoint
 app.get("/", async (req, res) => {
   const target = req.query.u;
   if (!target) {
-    return res.status(400).send("❌ Missing ?u= parameter");
+    return res.send("✅ TIEA IPTV Proxy is running! Use ?u=Base64URL to stream.");
   }
 
   try {
     const decodedUrl = Buffer.from(target, "base64").toString("utf-8");
-    console.log("Proxying:", decodedUrl);
+    const response = await fetch(decodedUrl, { timeout: 15000 });
 
-    const response = await fetch(decodedUrl);
     if (!response.ok) {
-      return res.status(response.status).send("⚠️ Error fetching stream");
+      return res.status(response.status).send(`Upstream error: ${response.statusText}`);
     }
 
-    // กำหนด header สำหรับ video m3u8
-    res.setHeader("Content-Type", "application/vnd.apple.mpegurl");
-    const body = await response.text();
-    res.send(body);
-  } catch (error) {
-    console.error("Proxy Error:", error);
-    res.status(500).send("🔥 Internal Proxy Error");
+    res.set("Content-Type", response.headers.get("content-type") || "application/vnd.apple.mpegurl");
+    response.body.pipe(res);
+  } catch (err) {
+    res.status(500).send("Proxy error: " + err.message);
   }
 });
 
