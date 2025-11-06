@@ -1,42 +1,13 @@
-import express from "express";
-import axios from "axios";
-import cors from "cors";
-
-const app = express();
-app.use(cors());
-
-app.get("/", (req, res) => {
-  res.send("✅ TIEA IPTV Proxy is running! Use /proxy?u=Base64URL");
-});
-
-app.get("/proxy", async (req, res) => {
-  try {
-    const base64url = req.query.u;
-    if (!base64url) {
-      return res.status(400).send("❌ Missing ?u= parameter");
-    }
-
-    const decodedUrl = Buffer.from(base64url, "base64").toString("utf-8");
-    console.log("🎯 Proxying:", decodedUrl);
-
-    const response = await axios.get(decodedUrl, {
-      responseType: "arraybuffer",
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
-      },
-    });
-
-    res.setHeader(
-      "Content-Type",
-      response.headers["content-type"] || "application/vnd.apple.mpegurl"
-    );
-    res.send(response.data);
-  } catch (error) {
-    console.error("❗ Proxy error:", error.message);
-    res.status(500).send("Proxy error: " + error.message);
+{
+  "name": "tieaiptv-proxy",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "node-fetch": "^3.3.2"
   }
-});
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+}
