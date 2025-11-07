@@ -2,51 +2,39 @@ import express from "express";
 import fetch from "node-fetch";
 
 const app = express();
+
+// ใช้ port จาก Render
 const PORT = process.env.PORT || 10000;
 
-// อนุญาต CORS
-app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", "*");
-  next();
-});
-
-// ฟังก์ชัน decode Base64
-function decodeBase64(u) {
-  return Buffer.from(u, "base64").toString("utf-8").trim();
-}
-
-// route หลัก
 app.get("/", async (req, res) => {
-  const { u } = req.query;
-  if (!u) return res.status(400).send("Missing ?u= parameter");
+  const urlParam = req.query.u;
+  if (!urlParam) {
+    return res.status(400).send("Missing ?u= parameter");
+  }
 
   try {
-    const url = decodeBase64(u);
-    console.log("Fetching URL:", url);
+    const decodedUrl = Buffer.from(urlParam, "base64").toString("utf-8").trim();
 
-    // ตรวจสอบ .m3u8 / .ts
-    const isM3U8 = url.endsWith(".m3u8");
-    const isTS = url.endsWith(".ts");
+    console.log("Fetching URL:", decodedUrl);
 
-    if (!isM3U8 && !isTS) {
-      return res.status(400).send("Only .m3u8 and .ts files supported");
+    const response = await fetch(decodedUrl);
+    if (!response.ok) {
+      console.error("Fetch error:", response.status, response.statusText);
+      return res.status(502).send("Bad gateway fetching HLS");
     }
 
-    // fetch แบบ streaming
-    const response = await fetch(url);
-    if (!response.ok) return res.status(response.status).send("Failed to fetch");
+    // กำหนด headers สำหรับ HLS
+    res.setHeader("Content-Type", "application/vnd.apple.mpegurl");
+    res.setHeader("Access-Control-Allow-Origin", "*");
 
-    // ตั้ง Content-Type ให้ browser / VLC เล่นได้
-    res.header("Content-Type", isM3U8 ? "application/vnd.apple.mpegurl" : "video/mp2t");
-    res.header("Cache-Control", "no-cache");
-
-    // pipe streaming
+    // Stream data
     response.body.pipe(res);
+
   } catch (err) {
-    console.error(err);
-    res.status(500).send("Internal Server Error");
+    console.error("Server error:", err);
+    res.status(500).send("Internal server error");
   }
 });
 
-// start server
-app.listen(PORT, () => console.log(`🎬 TIEA IPTV HLS Proxy running on port ${PORT}!`));
+app.listen(PORT, () => console.log(`TIEA IPTV Proxy is running on port ${PORT}!`));
+
