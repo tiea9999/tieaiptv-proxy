@@ -1,56 +1,59 @@
+
+
 import express from "express";
 import fetch from "node-fetch";
-import { URL } from "url";
 
 const app = express();
 const PORT = process.env.PORT || 10000;
 
-// Helper: fetch content จาก URL และ pipe ไป res
-async function fetchAndPipe(url, res, contentType) {
-  try {
-    const response = await fetch(url);
-    if (!response.ok) {
-      console.error("Fetch error:", response.status, response.statusText);
-      res.status(502).send("Bad gateway fetching HLS");
-      return false;
-    }
-    if (contentType) res.setHeader("Content-Type", contentType);
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    response.body.pipe(res);
-    return true;
-  } catch (err) {
-    console.error("Server error:", err);
-    res.status(500).send("Internal server error");
-    return false;
-  }
-}
-
-// Main route
 app.get("/", async (req, res) => {
-  const urlParam = req.query.u;
-  if (!urlParam) return res.status(400).send("Missing ?u= parameter");
+  const target = req.query.u;
+  if (!target) {
+    return res.status(400).send(`
+      <h2 style="font-family:sans-serif;text-align:center;margin-top:40px;color:#333">
+        ❗ โปรดใส่ URL เช่น<br>
+        <code>?u=https://dookeela2.live/live-tv/hbo</code>
+      </h2>
+    `);
+  }
 
   try {
-    const decodedUrl = Buffer.from(urlParam, "base64").toString("utf-8").trim();
-    console.log("Proxying HLS URL:", decodedUrl);
+    const headers = {
+      "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36",
+      "Referer": "https://dookeela.live/",
+      "Origin": "https://dookeela.live",
+      "Accept": "*/*",
+      "Connection": "keep-alive"
+    };
 
-    // ตรวจสอบว่า URL เป็น .m3u8 หรือไม่
-    if (decodedUrl.endsWith(".m3u8")) {
-      // Fetch playlist และ pipe ไป client
-      await fetchAndPipe(decodedUrl, res, "application/vnd.apple.mpegurl");
-    } else if (decodedUrl.endsWith(".ts")) {
-      // Fetch segment .ts และ pipe
-      await fetchAndPipe(decodedUrl, res, "video/mp2t");
+    const response = await fetch(target, { headers });
+    if (!response.ok) throw new Error(`Bad Gateway: ${response.status}`);
+
+    // ตรวจว่าคือ M3U8 หรือ HTML
+    const contentType = response.headers.get("content-type") || "";
+    if (contentType.includes("application/vnd.apple.mpegurl") || target.endsWith(".m3u8")) {
+      res.setHeader("Content-Type", "application/vnd.apple.mpegurl");
+    } else if (contentType.includes("application/dash+xml") || target.endsWith(".mpd")) {
+      res.setHeader("Content-Type", "application/dash+xml");
     } else {
-      // ถ้า URL เป็น master playlist หรืออื่น ๆ ให้ pipe ปกติ
-      await fetchAndPipe(decodedUrl, res, "application/vnd.apple.mpegurl");
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
     }
+
+    const buffer = await response.arrayBuffer();
+    res.send(Buffer.from(buffer));
+
   } catch (err) {
     console.error("Proxy error:", err);
-    res.status(500).send("Internal server error");
+    res.status(502).send(`
+      <h2 style="font-family:sans-serif;text-align:center;margin-top:40px;color:red">
+        ⚠️ Bad gateway fetching stream<br><br>
+        ${err.message}
+      </h2>
+    `);
   }
 });
 
-app.listen(PORT, () => console.log(`TIEA IPTV Smart Proxy is running on port ${PORT}!`));
-
-
+app.listen(PORT, () => {
+  console.log(`✅ TIEA IPTV Proxy running on port ${PORT}`);
+});
