@@ -1,17 +1,12 @@
 {
   "name": "tieaiptv-proxy-private-dookeela",
   "version": "1.0.0",
-  "description": "Private proxy for Dookeela IPTV use with AppCreator24",
   "main": "server.js",
-  "scripts": {
-    "start": "node server.js"
-  },
+  "scripts": { "start": "node server.js" },
   "dependencies": {
     "express": "^4.18.2",
     "node-fetch": "^2.6.11",
     "dotenv": "^16.0.3"
   },
-  "engines": {
-    "node": ">=14"
-  }
+  "engines": { "node": ">=14" }
 }
