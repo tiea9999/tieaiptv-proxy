@@ -1,6 +1,6 @@
 require('dotenv').config();
 const express = require('express');
-const fetch = require('node-fetch'); // ✅ ใช้เวอร์ชัน 2.6.11
+const fetch = require('node-fetch');
 const stream = require('stream');
 const { pipeline } = require('stream');
 const { promisify } = require('util');
@@ -9,7 +9,6 @@ const pump = promisify(pipeline);
 const app = express();
 const PORT = process.env.PORT || 10000;
 
-// ✅ จำกัดโดเมนที่อนุญาต
 const ALLOWED_PREFIX = 'https://dookeela2.live/live-tv/';
 const ALLOWED_REFERER = 'https://dookeela2.live/';
 const PROXY_KEY = process.env.PROXY_KEY || '';
@@ -21,58 +20,33 @@ app.get('/proxy', async (req, res) => {
     const ua = req.query.ua || req.get('user-agent') || 'Mozilla/5.0';
     const key = req.query.key || '';
 
-    // ✅ ตรวจ key
-    if (!PROXY_KEY) {
-      return res.status(500).send('Proxy not configured (missing PROXY_KEY)');
-    }
-    if (!key || key !== PROXY_KEY) {
+    if (!PROXY_KEY || key !== PROXY_KEY) {
       return res.status(403).send('Invalid key');
     }
 
-    if (!target) return res.status(400).send('Missing url');
-
-    // ✅ อนุญาตเฉพาะโดเมนที่กำหนด
-    if (!target.startsWith(ALLOWED_PREFIX)) {
+    if (!target || !target.startsWith(ALLOWED_PREFIX)) {
       return res.status(403).send('URL not allowed');
     }
 
-    // ✅ ตรวจ referer
-    if (!referer || !referer.startsWith(ALLOWED_REFERER)) {
-      return res.status(403).send('Invalid referer');
-    }
-
-    // ✅ ดึงข้อมูลจากต้นทาง
+    // Fetch manifest
     const fetchRes = await fetch(target, {
-      headers: {
-        'Referer': referer,
-        'User-Agent': ua,
-        'Accept': '*/*'
-      },
-      redirect: 'follow',
+      headers: { 'Referer': referer, 'User-Agent': ua },
+      redirect: 'follow'
     });
 
-    if (!fetchRes.ok) {
-      return res.status(fetchRes.status).send(`Upstream error: ${fetchRes.statusText}`);
-    }
+    if (!fetchRes.ok) return res.status(fetchRes.status).send(fetchRes.statusText);
 
-    // ✅ ส่งต่อ header ที่สำคัญ
-    const ct = fetchRes.headers.get('content-type');
-    const cl = fetchRes.headers.get('content-length');
-    const cc = fetchRes.headers.get('cache-control') || '';
+    let body = await fetchRes.text();
 
-    if (ct) res.set('Content-Type', ct);
-    if (cl) res.set('Content-Length', cl);
-    if (cc) res.set('Cache-Control', cc);
+    // 🔹 Rewrite relative .ts paths เป็น absolute
+    const baseUrl = target.substring(0, target.lastIndexOf('/') + 1);
+    body = body.replace(/^(.*\.ts)$/gm, baseUrl + '$1');
 
-    // ✅ อนุญาต CORS สำหรับ AppCreator24
+    res.set('Content-Type', 'application/vnd.apple.mpegurl');
     res.set('Access-Control-Allow-Origin', '*');
-    res.set('Access-Control-Allow-Headers', 'Range,Content-Type');
     res.set('Accept-Ranges', 'bytes');
 
-    const body = fetchRes.body;
-    if (!body) return res.status(500).send('No body from upstream');
-
-    await pump(body, res);
+    res.send(body);
   } catch (err) {
     console.error('Proxy error:', err);
     if (!res.headersSent) res.status(500).send('Proxy error');
@@ -80,5 +54,6 @@ app.get('/proxy', async (req, res) => {
 });
 
 app.listen(PORT, () => console.log(`✅ Proxy listening on port ${PORT}`));
+
 
 
