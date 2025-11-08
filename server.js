@@ -1,59 +1,48 @@
 require('dotenv').config();
 const express = require('express');
 const fetch = require('node-fetch');
-const stream = require('stream');
-const { pipeline } = require('stream');
-const { promisify } = require('util');
-const pump = promisify(pipeline);
-
 const app = express();
 const PORT = process.env.PORT || 10000;
 
-const ALLOWED_PREFIX = 'https://dookeela2.live/live-tv/';
-const ALLOWED_REFERER = 'https://dookeela2.live/';
 const PROXY_KEY = process.env.PROXY_KEY || '';
+const ALLOWED_PREFIX = 'https://dookeela2.live/live-tv/';
 
 app.get('/proxy', async (req, res) => {
   try {
     const target = req.query.url;
-    const referer = req.query.referer || req.get('referer') || '';
-    const ua = req.query.ua || req.get('user-agent') || 'Mozilla/5.0';
+    const referer = req.query.referer || '';
+    const ua = req.query.ua || 'Mozilla/5.0';
     const key = req.query.key || '';
 
-    if (!PROXY_KEY || key !== PROXY_KEY) {
-      return res.status(403).send('Invalid key');
-    }
+    // ตรวจ key
+    if (!PROXY_KEY || key !== PROXY_KEY) return res.status(403).send('Invalid key');
 
-    if (!target || !target.startsWith(ALLOWED_PREFIX)) {
-      return res.status(403).send('URL not allowed');
-    }
+    // ตรวจ URL
+    if (!target || !target.startsWith(ALLOWED_PREFIX)) return res.status(403).send('URL not allowed');
 
-    // Fetch manifest
-    const fetchRes = await fetch(target, {
-      headers: { 'Referer': referer, 'User-Agent': ua },
-      redirect: 'follow'
-    });
+    // ดึง manifest ใหม่ทุกครั้ง
+    const resp = await fetch(target, { headers: { 'Referer': referer, 'User-Agent': ua } });
+    if (!resp.ok) return res.status(resp.status).send(resp.statusText);
 
-    if (!fetchRes.ok) return res.status(fetchRes.status).send(fetchRes.statusText);
+    let body = await resp.text();
 
-    let body = await fetchRes.text();
-
-    // 🔹 Rewrite relative .ts paths เป็น absolute
+    // แปลง relative segment เป็น absolute
     const baseUrl = target.substring(0, target.lastIndexOf('/') + 1);
     body = body.replace(/^(.*\.ts)$/gm, baseUrl + '$1');
 
+    // ส่งกลับ client
     res.set('Content-Type', 'application/vnd.apple.mpegurl');
     res.set('Access-Control-Allow-Origin', '*');
-    res.set('Accept-Ranges', 'bytes');
-
     res.send(body);
+
   } catch (err) {
-    console.error('Proxy error:', err);
+    console.error(err);
     if (!res.headersSent) res.status(500).send('Proxy error');
   }
 });
 
-app.listen(PORT, () => console.log(`✅ Proxy listening on port ${PORT}`));
+app.listen(PORT, () => console.log(`✅ Dynamic Proxy running on port ${PORT}`));
+
 
 
 
