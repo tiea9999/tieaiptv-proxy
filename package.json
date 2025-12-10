@@ -1,12 +1,13 @@
 {
-  "name": "tieaiptv-dynamic-proxy",
+  "name": "iptv-proxy",
   "version": "1.0.0",
   "main": "server.js",
-  "scripts": { "start": "node server.js" },
+  "scripts": {
+    "start": "node server.js"
+  },
   "dependencies": {
     "express": "^4.18.2",
-    "node-fetch": "^2.6.11",
-    "dotenv": "^16.0.3"
-  },
-  "engines": { "node": ">=14" }
+    "request": "^2.88.2"
+  }
 }
+
