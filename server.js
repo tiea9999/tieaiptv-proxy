@@ -1,43 +1,51 @@
-const express = require("express");
-const request = require("request");
+import express from "express";
+import fetch from "node-fetch";
+import cors from "cors";
+
 const app = express();
+app.use(cors());
 
-app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", "*");
-  next();
+// Home
+app.get("/", (req, res) => {
+  res.send("TIEA IPTV Proxy is running!");
 });
 
-// =============================
-// Proxy ไฟล์ index.m3u8
-// =============================
-app.get("/stream/ch16", (req, res) => {
-  const base = "http://119.59.118.159/live/ch16/xxccxgd134/";
+// Proxy for m3u8 or TS
+app.get("/proxy", async (req, res) => {
+  const url = req.query.url;
 
-  request(base + "index.m3u8")
-    .on("error", (err) => {
-      console.error("Proxy error:", err);
-      res.sendStatus(500);
-    })
-    .pipe(res);
+  if (!url) {
+    return res.status(400).send("Missing url parameter. Example: /proxy?url=http://xxx/playlist.m3u8");
+  }
+
+  try {
+    const headers = {
+      "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123 Safari/537.36",
+      "Referer": url,
+      "Origin": url
+    };
+
+    const response = await fetch(url, { headers });
+
+    if (!response.ok) {
+      return res.status(500).send("Source Error: " + response.status);
+    }
+
+    res.set("Content-Type", response.headers.get("content-type"));
+    response.body.pipe(res);
+
+  } catch (err) {
+    res.status(500).send("Proxy Error: " + err);
+  }
 });
 
-// =============================
-// Proxy ไฟล์ .ts (ใช้สำหรับ segment)
-// =============================
-app.get("/stream/ch16/:segment", (req, res) => {
-  const base = "http://119.59.118.159/live/ch16/xxccxgd134/";
-  const segment = req.params.segment; // เช่น seg-1.ts
-
-  request(base + segment)
-    .on("error", (err) => {
-      console.error("TS Proxy error:", err);
-      res.sendStatus(500);
-    })
-    .pipe(res);
-});
-
+// Render Port
 const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => console.log(`Proxy running on port ${PORT}`));
+app.listen(PORT, () => {
+  console.log(`TIEA IPTV Proxy running on port ${PORT}`);
+});
+
 
 
 
