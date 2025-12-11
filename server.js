@@ -5,9 +5,9 @@ import cors from "cors";
 const app = express();
 app.use(cors());
 
-// สร้างช่อง auto ch9–ch66
+// สร้างช่อง auto ch9–ch100
 const channels = {};
-for (let i = 9; i <= 66; i++) {
+for (let i = 9; i <= 100; i++) {
   channels[`ch${i}`] = `http://119.59.118.159/live/ch${i}/xxccxgd134/`;
 }
 
