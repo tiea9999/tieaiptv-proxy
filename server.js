@@ -5,109 +5,71 @@ import cors from "cors";
 const app = express();
 app.use(cors());
 
-const BASE = "http://119.59.118.159/live";
-const PASS = "xxccxgd134";
-
-const channels = {};  // ช่องที่มีจริง
-
-// ========== Auto scan ==========
-async function scanChannels(start = 1, end = 200) {
-  console.log(`🔍 Scanning channels ${start}-${end} ...`);
-
-  for (let i = start; i <= end; i++) {
-    const testURL = `${BASE}/ch${i}/${PASS}/index.m3u8`;
-
-    try {
-      const resp = await fetch(testURL, { method: "HEAD" });
-
-      if (resp.ok) {
-        channels[`ch${i}`] = `${BASE}/ch${i}/${PASS}/`;
-        console.log(`✔ ch${i} AVAILABLE`);
-      } else {
-        console.log(`✖ ch${i} NOT FOUND`);
-      }
-
-    } catch (e) {
-      console.log(`✖ ch${i} ERROR`);
-    }
-  }
-
-  console.log(`🎉 Scan complete. Working channels: ${Object.keys(channels).length}`);
+// ====== AUTO CHANNEL ch1–ch200 ======
+const channels = {};
+for (let i = 1; i <= 200; i++) {
+  channels[`ch${i}`] = `http://119.59.118.159/live/ch${i}/xxccxgd134/`;
 }
 
-scanChannels(1, 200);
-
-// ========== ROUTES ===========
-
-// test
+// ====== TEST ROUTE ======
 app.get("/", (req, res) => {
-  res.send("TIEA IPTV Auto Proxy is running");
+  res.send("TIEA IPTV Proxy (Node.js) is running");
 });
 
-// ดึง playlist
+// ====== PLAYLIST PROXY ======
 app.get("/ch/:id", async (req, res) => {
   const id = req.params.id;
+  const baseUrl = channels[id];
 
-  // ช่องมีจริง
-  if (channels[id]) {
-    const baseUrl = channels[id];
-    const playlistUrl = baseUrl + "index.m3u8";
+  if (!baseUrl) return res.status(404).send("Channel not found!");
 
-    try {
-      const response = await fetch(playlistUrl, {
-        headers: { "User-Agent": "Mozilla/5.0", "Referer": baseUrl }
-      });
+  const playlistUrl = baseUrl + "index.m3u8";
 
-      if (!response.ok) {
-        return res.send(`#EXTM3U\n#EXT-X-ENDLIST`);
+  try {
+    const response = await fetch(playlistUrl, {
+      headers: {
+        "User-Agent": "Mozilla/5.0",
+        "Referer": baseUrl,
       }
+    });
 
-      let text = await response.text();
-
-      // rewrite segment
-      text = text.replace(/(.*\.ts)/g, seg => `/segment/${id}/${seg}`);
-
-      res.set("Content-Type", "application/vnd.apple.mpegurl");
-      return res.send(text);
-
-    } catch (err) {
-      return res.send(`#EXTM3U\n#EXT-X-ENDLIST`);
+    if (!response.ok) {
+      return res.status(500).send("Cannot load playlist (Source Error)");
     }
-  }
 
-  // ช่องไม่มีจริงใน server — ส่ง playlist เปล่า (ไม่ error)
-  return res.send(`#EXTM3U\n#EXTINF:0,Channel Offline\n#EXT-X-ENDLIST`);
+    let text = await response.text();
+
+    // rewrite segment path
+    text = text.replace(/(.*\.ts)/g, (seg) => `/segment/${id}/${seg}`);
+
+    res.set("Content-Type", "application/vnd.apple.mpegurl");
+    res.send(text);
+
+  } catch (err) {
+    res.status(500).send("Fetch Error: " + err.message);
+  }
 });
 
-// Proxy segment
+// ====== SEGMENT PROXY (.ts) ======
 app.get("/segment/:id/:seg", async (req, res) => {
   const { id, seg } = req.params;
-
-  if (!channels[id]) {
-    return res.status(404).send("Offline");
-  }
-
   const baseUrl = channels[id];
+
+  if (!baseUrl) return res.status(404).send("Channel not found!");
+
   const tsUrl = baseUrl + seg;
 
   try {
     const response = await fetch(tsUrl, {
-      headers: { "User-Agent": "Mozilla/5.0", "Referer": baseUrl }
+      headers: {
+        "User-Agent": "Mozilla/5.0",
+        "Referer": baseUrl,
+      }
     });
 
-    if (!response.ok) return res.status(500).send("Segment Error");
+    if (!response.ok) {
+      return res.status(50
 
-    res.set("Content-Type", "video/mp2t");
-    response.body.pipe(res);
-
-  } catch (err) {
-    res.status(500).send("Error");
-  }
-});
-
-// Render port
-const port = process.env.PORT || 3000;
-app.listen(port, () => console.log("Running on port " + port));
 
 
 
