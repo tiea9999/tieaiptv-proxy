@@ -68,7 +68,24 @@ app.get("/segment/:id/:seg", async (req, res) => {
     });
 
     if (!response.ok) {
-      return res.status(50
+      return res.status(500).send("Cannot load segment (Source Error)");
+    }
+
+    // Stream TS data
+    res.set("Content-Type", "video/mp2t");
+    response.body.pipe(res);
+
+  } catch (err) {
+    res.status(500).send("Segment Fetch Error: " + err.message);
+  }
+});
+
+// ====== START SERVER ======
+const PORT = process.env.PORT || 10000;
+app.listen(PORT, () => {
+  console.log("TIEA IPTV Proxy running on port " + PORT);
+});
+
 
 
 
