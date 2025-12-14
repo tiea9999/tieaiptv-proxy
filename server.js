@@ -5,11 +5,10 @@ import cors from "cors";
 const app = express();
 app.use(cors());
 
-// ====== AUTO CHANNEL 1–200 ======
-const channels = {};
-for (let i = 1; i <= 200; i++) {
-  channels[`ch${i}`] = `http://45.144.165.187:8080/live/playid/2535/${i}.m3u8`;
-}
+// ====== CONFIG ======
+const BASE_URL = "http://45.144.165.187:8080/live/playid";
+const PLAY_ID = 2535; // ค่าคงที่
+const MAX_CH = 200;
 
 // ====== TEST ROUTE ======
 app.get("/", (req, res) => {
@@ -18,18 +17,20 @@ app.get("/", (req, res) => {
 
 // ====== PLAYLIST PROXY ======
 app.get("/ch/:id", async (req, res) => {
-  const id = req.params.id;
-  const baseUrl = channels[id];
+  const id = req.params.id.replace("ch", "");
+  const chNum = parseInt(id);
 
-  if (!baseUrl) return res.status(404).send("Channel not found!");
+  if (isNaN(chNum) || chNum < 1 || chNum > MAX_CH) {
+    return res.status(404).send("Channel not found!");
+  }
 
-  const playlistUrl = baseUrl + "index.m3u8";
+  const playlistUrl = `${BASE_URL}/${PLAY_ID}/${chNum}.m3u8`;
 
   try {
     const response = await fetch(playlistUrl, {
       headers: {
         "User-Agent": "Mozilla/5.0",
-        "Referer": baseUrl,
+        "Referer": BASE_URL,
       }
     });
 
@@ -39,8 +40,8 @@ app.get("/ch/:id", async (req, res) => {
 
     let text = await response.text();
 
-    // rewrite segment path
-    text = text.replace(/(.*\.ts)/g, (seg) => `/segment/${id}/${seg}`);
+    // rewrite .ts segment
+    text = text.replace(/(.*\.ts)/g, (seg) => `/segment/${chNum}/${seg}`);
 
     res.set("Content-Type", "application/vnd.apple.mpegurl");
     res.send(text);
@@ -50,28 +51,29 @@ app.get("/ch/:id", async (req, res) => {
   }
 });
 
-// ====== SEGMENT PROXY (.ts) ======
-app.get("/segment/:id/:seg", async (req, res) => {
-  const { id, seg } = req.params;
-  const baseUrl = channels[id];
+// ====== SEGMENT PROXY ======
+app.get("/segment/:ch/:seg", async (req, res) => {
+  const { ch, seg } = req.params;
+  const chNum = parseInt(ch);
 
-  if (!baseUrl) return res.status(404).send("Channel not found!");
+  if (isNaN(chNum) || chNum < 1 || chNum > MAX_CH) {
+    return res.status(404).send("Channel not found!");
+  }
 
-  const tsUrl = baseUrl + seg;
+  const tsUrl = `${BASE_URL}/${PLAY_ID}/${seg}`;
 
   try {
     const response = await fetch(tsUrl, {
       headers: {
         "User-Agent": "Mozilla/5.0",
-        "Referer": baseUrl,
+        "Referer": BASE_URL,
       }
     });
 
     if (!response.ok) {
-      return res.status(500).send("Cannot load segment (Source Error)");
+      return res.status(500).send("Cannot load segment");
     }
 
-    // Stream TS data
     res.set("Content-Type", "video/mp2t");
     response.body.pipe(res);
 
@@ -85,10 +87,6 @@ const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
   console.log("TIEA IPTV Proxy running on port " + PORT);
 });
-
-
-
-
 
 
 
