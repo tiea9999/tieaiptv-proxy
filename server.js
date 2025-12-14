@@ -5,10 +5,10 @@ import cors from "cors";
 const app = express();
 app.use(cors());
 
-// ====== AUTO CHANNEL ch1–ch200 ======
+// ====== AUTO CHANNEL 1–200 ======
 const channels = {};
 for (let i = 1; i <= 200; i++) {
-  channels[`ch${i}`] = `http://119.59.118.159/live/ch${i}/xxccxgd134/`;
+  channels[`ch${i}`] = `http://45.144.165.187:8080/live/playid/2535/${i}.m3u8`;
 }
 
 // ====== TEST ROUTE ======
