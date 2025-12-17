@@ -6,8 +6,8 @@ const app = express();
 app.use(cors());
 
 // ====== CONFIG ======
-const BASE_URL = "http://45.144.165.187:8080/live/playid";
-const PLAY_ID = 2535; // ค่าคงที่
+const BASE_URL = "http://119.59.118.159/live";
+const TOKEN = "Mariogogo007"; // รหัสโฟลเดอร์ระหว่าง ch และ index.m3u8
 const MAX_CH = 200;
 
 // ====== TEST ROUTE ======
@@ -24,7 +24,7 @@ app.get("/ch/:id", async (req, res) => {
     return res.status(404).send("Channel not found!");
   }
 
-  const playlistUrl = `${BASE_URL}/${PLAY_ID}/${chNum}.m3u8`;
+  const playlistUrl = `${BASE_URL}/ch${chNum}/${TOKEN}/index.m3u8`;
 
   try {
     const response = await fetch(playlistUrl, {
@@ -40,8 +40,8 @@ app.get("/ch/:id", async (req, res) => {
 
     let text = await response.text();
 
-    // rewrite .ts segment
-    text = text.replace(/(.*\.ts)/g, (seg) => `/segment/${chNum}/${seg}`);
+    // แก้พาธ segment (.ts)
+    text = text.replace(/(.*\.ts)/g, (seg) => `/segment/ch${chNum}/${seg}`);
 
     res.set("Content-Type", "application/vnd.apple.mpegurl");
     res.send(text);
@@ -52,15 +52,11 @@ app.get("/ch/:id", async (req, res) => {
 });
 
 // ====== SEGMENT PROXY ======
-app.get("/segment/:ch/:seg", async (req, res) => {
-  const { ch, seg } = req.params;
-  const chNum = parseInt(ch);
+app.get("/segment/:id/:seg", async (req, res) => {
+  const { id, seg } = req.params;
+  const chNum = id.replace("ch", "");
 
-  if (isNaN(chNum) || chNum < 1 || chNum > MAX_CH) {
-    return res.status(404).send("Channel not found!");
-  }
-
-  const tsUrl = `${BASE_URL}/${PLAY_ID}/${seg}`;
+  const tsUrl = `${BASE_URL}/ch${chNum}/${TOKEN}/${seg}`;
 
   try {
     const response = await fetch(tsUrl, {
@@ -71,7 +67,7 @@ app.get("/segment/:ch/:seg", async (req, res) => {
     });
 
     if (!response.ok) {
-      return res.status(500).send("Cannot load segment");
+      return res.status(500).send("Cannot load segment (Source Error)");
     }
 
     res.set("Content-Type", "video/mp2t");
@@ -87,6 +83,7 @@ const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
   console.log("TIEA IPTV Proxy running on port " + PORT);
 });
+
 
 
 
