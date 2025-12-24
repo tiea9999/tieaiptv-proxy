@@ -12,10 +12,10 @@ const MAX_CH = 200;
 
 // ===== TEST =====
 app.get("/", (req, res) => {
-  res.send("TIEA IPTV Proxy FAST MODE is running");
+  res.send("TIEA IPTV Proxy HYBRID MODE running");
 });
 
-// ===== FAST PLAYLIST PROXY (NO REWRITE) =====
+// ===== PLAYLIST =====
 app.get("/ch/:id", async (req, res) => {
   const chNum = parseInt(req.params.id.replace("ch", ""));
 
@@ -23,10 +23,43 @@ app.get("/ch/:id", async (req, res) => {
     return res.status(404).send("Channel not found");
   }
 
-  const url = `${BASE_URL}/ch${chNum}/${TOKEN}/index.m3u8`;
+  const playlistUrl = `${BASE_URL}/ch${chNum}/${TOKEN}/index.m3u8`;
 
   try {
-    const response = await fetch(url, {
+    const r = await fetch(playlistUrl, {
+      headers: {
+        "User-Agent": "Mozilla/5.0",
+        "Referer": BASE_URL
+      }
+    });
+
+    if (!r.ok) return res.status(502).send("Source error");
+
+    let text = await r.text();
+
+    // 🔑 rewrite ts ให้ชี้มาที่ proxy
+    text = text.replace(
+      /^([^#].*\.ts.*)$/gm,
+      `/segment/ch${chNum}/$1`
+    );
+
+    res.set("Content-Type", "application/vnd.apple.mpegurl");
+    res.send(text);
+
+  } catch (e) {
+    res.status(500).send(e.message);
+  }
+});
+
+// ===== SEGMENT =====
+app.get("/segment/:ch/:seg", async (req, res) => {
+  const chNum = req.params.ch.replace("ch", "");
+  const seg = req.params.seg;
+
+  const tsUrl = `${BASE_URL}/ch${chNum}/${TOKEN}/${seg}`;
+
+  try {
+    const r = await fetch(tsUrl, {
       headers: {
         "User-Agent": "Mozilla/5.0",
         "Referer": BASE_URL,
@@ -34,29 +67,21 @@ app.get("/ch/:id", async (req, res) => {
       }
     });
 
-    if (!response.ok) {
-      return res.status(502).send("Source error");
-    }
+    if (!r.ok) return res.status(502).send("TS error");
 
-    // headers สำคัญ ช่วยให้ player start เร็ว
-    res.set({
-      "Content-Type": "application/vnd.apple.mpegurl",
-      "Cache-Control": "no-cache",
-      "Access-Control-Allow-Origin": "*"
-    });
+    // ⚡ stream ตรง ไม่มี buffer
+    res.set("Content-Type", "video/mp2t");
+    r.body.pipe(res);
 
-    // 🔥 ส่งตรง ไม่แตะข้อมูล
-    response.body.pipe(res);
-
-  } catch (err) {
-    res.status(500).send(err.message);
+  } catch (e) {
+    res.status(500).send(e.message);
   }
 });
 
 // ===== START =====
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
-  console.log("FAST IPTV Proxy running on port " + PORT);
+  console.log("HYBRID IPTV Proxy running on port " + PORT);
 });
 
 
