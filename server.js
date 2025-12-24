@@ -5,83 +5,58 @@ import cors from "cors";
 const app = express();
 app.use(cors());
 
-// ====== CONFIG ======
+// ===== CONFIG =====
 const BASE_URL = "http://119.59.118.159/live";
-const TOKEN = "Mariogogo007"; // รหัสโฟลเดอร์ระหว่าง ch และ index.m3u8
+const TOKEN = "Mariogogo007";
 const MAX_CH = 200;
 
-// ====== TEST ROUTE ======
+// ===== TEST =====
 app.get("/", (req, res) => {
-  res.send("TIEA IPTV Proxy (Node.js) is running");
+  res.send("TIEA IPTV Proxy FAST MODE is running");
 });
 
-// ====== PLAYLIST PROXY ======
+// ===== FAST PLAYLIST PROXY (NO REWRITE) =====
 app.get("/ch/:id", async (req, res) => {
-  const id = req.params.id.replace("ch", "");
-  const chNum = parseInt(id);
+  const chNum = parseInt(req.params.id.replace("ch", ""));
 
   if (isNaN(chNum) || chNum < 1 || chNum > MAX_CH) {
-    return res.status(404).send("Channel not found!");
+    return res.status(404).send("Channel not found");
   }
 
-  const playlistUrl = `${BASE_URL}/ch${chNum}/${TOKEN}/index.m3u8`;
+  const url = `${BASE_URL}/ch${chNum}/${TOKEN}/index.m3u8`;
 
   try {
-    const response = await fetch(playlistUrl, {
+    const response = await fetch(url, {
       headers: {
         "User-Agent": "Mozilla/5.0",
         "Referer": BASE_URL,
+        "Connection": "keep-alive"
       }
     });
 
     if (!response.ok) {
-      return res.status(500).send("Cannot load playlist (Source Error)");
+      return res.status(502).send("Source error");
     }
 
-    let text = await response.text();
-
-    // แก้พาธ segment (.ts)
-    text = text.replace(/(.*\.ts)/g, (seg) => `/segment/ch${chNum}/${seg}`);
-
-    res.set("Content-Type", "application/vnd.apple.mpegurl");
-    res.send(text);
-
-  } catch (err) {
-    res.status(500).send("Fetch Error: " + err.message);
-  }
-});
-
-// ====== SEGMENT PROXY ======
-app.get("/segment/:id/:seg", async (req, res) => {
-  const { id, seg } = req.params;
-  const chNum = id.replace("ch", "");
-
-  const tsUrl = `${BASE_URL}/ch${chNum}/${TOKEN}/${seg}`;
-
-  try {
-    const response = await fetch(tsUrl, {
-      headers: {
-        "User-Agent": "Mozilla/5.0",
-        "Referer": BASE_URL,
-      }
+    // headers สำคัญ ช่วยให้ player start เร็ว
+    res.set({
+      "Content-Type": "application/vnd.apple.mpegurl",
+      "Cache-Control": "no-cache",
+      "Access-Control-Allow-Origin": "*"
     });
 
-    if (!response.ok) {
-      return res.status(500).send("Cannot load segment (Source Error)");
-    }
-
-    res.set("Content-Type", "video/mp2t");
+    // 🔥 ส่งตรง ไม่แตะข้อมูล
     response.body.pipe(res);
 
   } catch (err) {
-    res.status(500).send("Segment Fetch Error: " + err.message);
+    res.status(500).send(err.message);
   }
 });
 
-// ====== START SERVER ======
+// ===== START =====
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
-  console.log("TIEA IPTV Proxy running on port " + PORT);
+  console.log("FAST IPTV Proxy running on port " + PORT);
 });
 
 
