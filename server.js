@@ -7,7 +7,7 @@ app.use(cors());
 
 // ===== CONFIG =====
 const BASE_URL = "http://119.59.118.159/live";
-const TOKEN = "Mariogogo007";
+const TOKEN = "Ultraman008";
 const MAX_CH = 200;
 
 // ===== TEST =====
