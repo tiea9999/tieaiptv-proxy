@@ -3,18 +3,21 @@ import fetch from "node-fetch";
 
 const app = express();
 
+const BASE = "https://night.redfight.info";
+
+// 🔥 ดึง m3u8 หลัก
 app.get("/play", async (req, res) => {
   try {
     const id = req.query.id;
     if (!id) return res.send("ใส่ id เช่น /play?id=2820");
 
-    const api = `https://night.redfight.info/iptv.php?id=${id}&ajax=1`;
+    const api = `${BASE}/iptv.php?id=${id}&ajax=1`;
 
     const response = await fetch(api, {
       headers: {
         "User-Agent": "Mozilla/5.0",
-        "Referer": "https://night.redfight.info/",
-        "Origin": "https://night.redfight.info"
+        "Referer": BASE + "/",
+        "Origin": BASE
       }
     });
 
@@ -25,28 +28,56 @@ app.get("/play", async (req, res) => {
 
     const m3u8Url = match[0];
 
-    // 🔥 ดึง playlist จริง
     const playlistRes = await fetch(m3u8Url, {
       headers: {
         "User-Agent": "Mozilla/5.0",
-        "Referer": "https://night.redfight.info/"
+        "Referer": BASE + "/"
       }
     });
 
-    const playlist = await playlistRes.text();
+    let playlist = await playlistRes.text();
 
-    // 🔁 rewrite ลิงก์ segment
-    const fixed = playlist.replace(/(https?:\/\/.*?)/g, (url) => {
-      return url; // (เวอร์ชันง่าย ยังไม่แก้ segment)
+    // 🔁 rewrite segment ให้ผ่าน proxy
+    playlist = playlist.replace(/(https?:\/\/.*?\.ts)/g, (url) => {
+      return `/segment?url=${encodeURIComponent(url)}`;
+    });
+
+    // 🔁 เผื่อเป็น relative path
+    playlist = playlist.replace(/^(?!#)(.*\.ts)$/gm, (line) => {
+      const full = new URL(line, m3u8Url).href;
+      return `/segment?url=${encodeURIComponent(full)}`;
     });
 
     res.setHeader("Content-Type", "application/vnd.apple.mpegurl");
-    res.send(fixed);
+    res.send(playlist);
 
   } catch (err) {
     res.send("error: " + err.message);
   }
 });
 
+// 🔥 proxy segment (.ts)
+app.get("/segment", async (req, res) => {
+  try {
+    const url = req.query.url;
+    if (!url) return res.send("missing url");
+
+    const stream = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0",
+        "Referer": BASE + "/"
+      }
+    });
+
+    res.setHeader("Content-Type", "video/mp2t");
+    stream.body.pipe(res);
+
+  } catch (err) {
+    res.send("segment error: " + err.message);
+  }
+});
+
 const PORT = process.env.PORT || 3000;
-app.listen(PORT);
+app.listen(PORT, () => {
+  console.log("FULL PROXY RUNNING 🔥");
+});
