@@ -8,15 +8,18 @@ app.get("/play", async (req, res) => {
     const id = req.query.id;
 
     if (!id) {
-      return res.send("กรุณาใส่ id เช่น /play?id=2820");
+      return res.send("ใส่ id เช่น /play?id=2820");
     }
 
     const url = `https://night.redfight.info/iptv.php?id=${id}&ajax=1`;
 
     const response = await fetch(url, {
       headers: {
-        "User-Agent": "Mozilla/5.0",
-        "Referer": "https://night.redfight.info/"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+        "Referer": "https://night.redfight.info/",
+        "Origin": "https://night.redfight.info",
+        "Accept": "*/*",
+        "Connection": "keep-alive"
       }
     });
 
@@ -25,12 +28,13 @@ app.get("/play", async (req, res) => {
     const match = text.match(/https?:\/\/.*?\.m3u8.*?/);
 
     if (!match) {
-      return res.status(500).send("ไม่พบลิงก์ m3u8");
+      return res.status(500).send("ไม่พบ m3u8");
     }
 
     const m3u8 = match[0];
 
     res.setHeader("Cache-Control", "no-store");
+
     res.redirect(m3u8);
 
   } catch (err) {
@@ -40,5 +44,5 @@ app.get("/play", async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log("Proxy running on port " + PORT);
+  console.log("Proxy running");
 });
